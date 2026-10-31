@@ -1,0 +1,26 @@
+<head>
+  <title>Spectrum wave</title>
+  <meta description="Every hue in a band that rolls across the rig." />
+  <meta publisher="Monarch" />
+  <meta property="speed" label="Speed" type="number" min="0" max="100" default="35" />
+  <meta property="angle" label="Direction" type="number" min="0" max="359" default="20" />
+  <meta property="spread" label="Band width" type="number" min="1" max="100" default="45" />
+  <meta property="saturation" label="Saturation" type="number" min="0" max="100" default="100" />
+</head>
+<body style="margin:0;background:#000"><canvas id="c" width="320" height="200"></canvas></body>
+<script>
+const ctx = document.getElementById("c").getContext("2d");
+let hue = 0;
+function frame() {
+  hue = (hue + 0.2 + speed / 100 * 3) % 360;
+  const a = angle * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a);
+  const len = 180;
+  const g = ctx.createLinearGradient(160 - dx * len, 100 - dy * len, 160 + dx * len, 100 + dy * len);
+  const span = 60 + (100 - spread) * 6;
+  for (let i = 0; i <= 12; i++) g.addColorStop(i / 12, `hsl(${(hue + i / 12 * span) % 360},${saturation}%,50%)`);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 320, 200);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>

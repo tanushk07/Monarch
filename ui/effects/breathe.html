@@ -1,0 +1,22 @@
+<head>
+  <title>Breathe</title>
+  <meta description="One colour that fades in and out like slow breathing." />
+  <meta publisher="Monarch" />
+  <meta property="color" label="Colour" type="color" default="#78B8FF" />
+  <meta property="speed" label="Speed" type="number" min="1" max="100" default="25" />
+  <meta property="floor" label="Lowest brightness" type="number" min="0" max="90" default="8" />
+</head>
+<body style="margin:0;background:#000"><canvas id="c" width="320" height="200"></canvas></body>
+<script>
+const ctx = document.getElementById("c").getContext("2d");
+let t = 0;
+function frame() {
+  t += 0.004 + speed / 100 * 0.05;
+  const k = floor / 100 + (1 - floor / 100) * (0.5 - 0.5 * Math.cos(t));
+  const n = parseInt(color.slice(1), 16);
+  ctx.fillStyle = `rgb(${(n >> 16) * k},${((n >> 8) & 255) * k},${(n & 255) * k})`;
+  ctx.fillRect(0, 0, 320, 200);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>

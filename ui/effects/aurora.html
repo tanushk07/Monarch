@@ -1,0 +1,37 @@
+<head>
+  <title>Aurora drift</title>
+  <meta description="Slow, overlapping glows that wander across the whole rig." />
+  <meta publisher="Monarch" />
+  <meta property="speed" label="Speed" type="number" min="0" max="100" default="30" />
+  <meta property="color1" label="First colour" type="color" default="#2F6BFF" />
+  <meta property="color2" label="Second colour" type="color" default="#8A4DFF" />
+  <meta property="color3" label="Third colour" type="color" default="#19D3C5" />
+  <meta property="depth" label="Darkness between glows" type="number" min="0" max="100" default="55" />
+</head>
+<body style="margin:0;background:#000"><canvas id="c" width="320" height="200"></canvas></body>
+<script>
+const ctx = document.getElementById("c").getContext("2d");
+let t = 0;
+const blobs = Array.from({ length: 6 }, (_, i) => ({ ax: 0.6 + i * 0.17, ay: 0.9 + i * 0.13, px: i * 1.7, py: i * 2.3, r: 90 + (i % 3) * 30, c: i % 3 }));
+function rgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+function frame() {
+  t += (0.0015 + speed / 100 * 0.012);
+  const cols = [rgb(color1), rgb(color2), rgb(color3)];
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = `rgba(0,0,0,${0.12 + depth / 100 * 0.5})`;
+  ctx.fillRect(0, 0, 320, 200);
+  ctx.globalCompositeOperation = "lighter";
+  for (const b of blobs) {
+    const x = 160 + Math.sin(t * b.ax + b.px) * 170;
+    const y = 100 + Math.cos(t * b.ay + b.py) * 110;
+    const [r, g, bl] = cols[b.c];
+    const gr = ctx.createRadialGradient(x, y, 0, x, y, b.r);
+    gr.addColorStop(0, `rgba(${r},${g},${bl},.55)`);
+    gr.addColorStop(1, `rgba(${r},${g},${bl},0)`);
+    ctx.fillStyle = gr;
+    ctx.fillRect(x - b.r, y - b.r, b.r * 2, b.r * 2);
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>

@@ -1,0 +1,27 @@
+<head>
+  <title>Side to side</title>
+  <meta description="A bright band sweeps across the canvas. Use it to check your layout: the band should travel through your parts in the order they sit." />
+  <meta publisher="Monarch" />
+  <meta property="dir" label="Direction" type="combobox" values="Left to right,Top to bottom" default="Left to right" />
+  <meta property="speed" label="Speed" type="number" min="1" max="100" default="35" />
+  <meta property="band" label="Band width" type="number" min="5" max="100" default="30" />
+  <meta property="color" label="Band colour" type="color" default="#78B8FF" />
+  <meta property="back" label="Background" type="color" default="#000000" />
+</head>
+<body style="margin:0;background:#000"><canvas id="c" width="320" height="200"></canvas></body>
+<script>
+const ctx = document.getElementById("c").getContext("2d");
+let t = 0, last = performance.now();
+function frame(now) {
+  t += (now - last) / 1000 * (0.1 + speed / 100 * 0.9); last = now;
+  const horiz = dir !== "Top to bottom", span = horiz ? 320 : 200, w = band / 100 * span;
+  const pos = ((t % 1) * (span + w * 2)) - w;
+  ctx.fillStyle = back; ctx.fillRect(0, 0, 320, 200);
+  const g = horiz ? ctx.createLinearGradient(pos - w, 0, pos + w, 0) : ctx.createLinearGradient(0, pos - w, 0, pos + w);
+  g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(0.5, color); g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g;
+  if (horiz) ctx.fillRect(pos - w, 0, w * 2, 200); else ctx.fillRect(0, pos - w, 320, w * 2);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>

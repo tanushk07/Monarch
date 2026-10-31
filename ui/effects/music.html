@@ -1,0 +1,32 @@
+<head>
+  <title>Music pulse</title>
+  <meta description="Bass swells the whole rig while the spectrum runs left to right." />
+  <meta publisher="Monarch" />
+  <meta property="mode" label="Colours" type="combobox" values="Spectrum,One colour" default="Spectrum" />
+  <meta property="color" label="Colour" type="color" default="#78B8FF" />
+  <meta property="sensitivity" label="Sensitivity" type="number" min="1" max="100" default="60" />
+  <meta property="rest" label="Glow when quiet" type="number" min="0" max="60" default="10" />
+</head>
+<body style="margin:0;background:#000"><canvas id="c" width="320" height="200"></canvas></body>
+<script>
+const ctx = document.getElementById("c").getContext("2d");
+let hue = 0, bassAvg = 0;
+function frame() {
+  const f = new Uint8Array(engine.audio.freq);
+  const gain = 0.5 + sensitivity / 100 * 2.5;
+  let bass = 0; for (let i = 0; i < 8; i++) bass += f[i]; bass = Math.min(1, bass / 8 / 127 * gain);
+  bassAvg += (bass - bassAvg) * 0.35;
+  hue = (hue + 0.4) % 360;
+  const n = parseInt(color.slice(1), 16), cr = n >> 16, cg = (n >> 8) & 255, cb = n & 255;
+  ctx.fillStyle = "#000"; ctx.fillRect(0, 0, 320, 200);
+  for (let x = 0; x < 40; x++) {
+    const bin = Math.floor(Math.pow(x / 40, 1.6) * 180);
+    const v = Math.min(1, f[bin] / 127 * gain);
+    const l = Math.max(rest / 100, v) * (0.55 + bassAvg * 0.45);
+    ctx.fillStyle = mode === "Spectrum" ? `hsl(${(hue + x * 7) % 360},100%,${l * 52}%)` : `rgb(${cr * l},${cg * l},${cb * l})`;
+    ctx.fillRect(x * 8, 0, 8, 200);
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>

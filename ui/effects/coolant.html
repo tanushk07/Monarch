@@ -1,0 +1,29 @@
+<head>
+  <title>Coolant heat</title>
+  <meta description="Lights shift from cool to hot as your loop warms up. Read straight from the pump." />
+  <meta publisher="Monarch" />
+  <meta property="cold" label="Cool at (°C)" type="number" min="15" max="40" default="28" />
+  <meta property="hot" label="Hot at (°C)" type="number" min="30" max="60" default="42" />
+  <meta property="coldColor" label="Cool colour" type="color" default="#2F8BFF" />
+  <meta property="hotColor" label="Hot colour" type="color" default="#FF4A3D" />
+</head>
+<body style="margin:0;background:#000"><canvas id="c" width="320" height="200"></canvas></body>
+<script>
+const ctx = document.getElementById("c").getContext("2d");
+let t = 0, k = 0;
+function rgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+function frame() {
+  t += 0.02;
+  const target = Math.max(0, Math.min(1, ((engine.sensors.coolant || cold) - cold) / Math.max(1, hot - cold)));
+  k += (target - k) * 0.02;
+  const a = rgb(coldColor), b = rgb(hotColor);
+  for (let x = 0; x < 320; x += 4) {
+    const w = 0.82 + 0.18 * Math.sin(t + x / 40);
+    const c = a.map((v, i) => (v + (b[i] - v) * k) * w);
+    ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+    ctx.fillRect(x, 0, 4, 200);
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>

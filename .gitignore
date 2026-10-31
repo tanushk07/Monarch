@@ -1,0 +1,51 @@
+# Build and editor output
+[Bb]in/
+[Oo]bj/
+[Bb]uild/
+[Dd]ist/
+[Pp]ublish/
+[Aa]rtifacts/
+.vs/
+*.user
+*.suo
+*.cache
+*.log
+
+# Packaged application binaries and installers
+*.exe
+*.dll
+*.pdb
+*.msi
+*.sys
+*.cat
+
+# Media assets
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.bmp
+*.ico
+*.svg
+*.avif
+*.tif
+*.tiff
+*.mp3
+*.wav
+*.ogg
+*.flac
+*.m4a
+*.aac
+*.wma
+*.mp4
+*.m4v
+*.mov
+*.avi
+*.mkv
+*.webm
+
+# Local media and upload folders
+[Mm]edia/
+[Uu]ploads/
+[Ww]allpapers/

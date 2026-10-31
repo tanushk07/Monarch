@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monarch</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="shell booting" id="shell">
+  <header class="bar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 15 1.5 5.5l5 4L10 3l3.5 6.5 5-4-1 9.5z"/><path d="M4 18h12"/><path class="gem" d="M10 10.2l1.4 1.8-1.4 1.8-1.4-1.8z"/></svg>
+      <span>Monarch</span>
+    </div>
+    <nav class="nav" aria-label="Sections">
+      <button data-view="rig" aria-current="page">Rig</button>
+      <button data-view="lighting">Lighting</button>
+      <button data-view="cooling">Cooling</button>
+      <button data-view="pump">Pump screen</button>
+      <button data-view="mouse">Mouse</button>
+      <button data-view="wallpaper">Wallpaper</button>
+      <button data-view="settings">Settings</button>
+    </nav>
+    <div class="readouts" aria-label="Live temperatures">
+      <span class="ro"><b id="ro-coolant">--</b><i>coolant</i></span>
+      <span class="ro"><b id="ro-cpu">--</b><i>CPU</i></span>
+      <span class="ro opt"><b id="ro-gpu">--</b><i>GPU</i></span>
+    </div>
+    <div class="winbtns">
+      <button id="btn-min" aria-label="Minimize" title="Minimize"><svg viewBox="0 0 12 12"><path d="M1 6h10"/></svg></button>
+      <button id="btn-max" aria-label="Maximize" title="Maximize"><svg viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" rx="1"/></svg></button>
+      <button id="btn-close" class="close" aria-label="Close to tray" title="Close to tray"><svg viewBox="0 0 12 12"><path d="M1.5 1.5l9 9M10.5 1.5l-9 9"/></svg></button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Rig -->
+    <section class="view active" id="view-rig">
+      <canvas class="rig-aura" id="stage-ambient"></canvas>
+      <div class="rig">
+        <div class="stage">
+          <div class="stage-inner" id="stage">
+            <canvas class="leds" id="stage-leds"></canvas>
+            <svg class="art" id="stage-art" aria-label="Map of your rig"></svg>
+          </div>
+        </div>
+
+        <div class="rig-side">
+          <aside class="vitals sys">
+            <span class="sys-title">Status</span>
+            <div class="vital-hero">
+              <div class="value" id="v-coolant">--<sup>°C</sup></div>
+              <div class="label">Coolant, read from the pump</div>
+            </div>
+            <svg class="spark" id="v-spark" viewBox="0 0 260 84" preserveAspectRatio="none" aria-hidden="true">
+              <defs><linearGradient id="spark-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-opacity=".28"/><stop offset="1" stop-opacity="0"/></linearGradient></defs>
+              <path class="fill"/><path class="line"/>
+            </svg>
+            <div class="vital-list" id="v-list"></div>
+            <div class="devices" id="v-devices"></div>
+          </aside>
+
+          <div class="now sys">
+            <span class="sys-title">Lighting</span>
+            <canvas id="now-thumb" width="160" height="100"></canvas>
+            <div class="now-text">
+              <div class="title" id="now-title">—</div>
+              <div class="sub" id="now-sub">Lighting effect</div>
+            </div>
+            <div class="now-ctl">
+              <label class="bright" title="Brightness">
+                <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3 3l1.1 1.1M11.9 11.9 13 13M3 13l1.1-1.1M11.9 4.1 13 3"/></svg>
+                <input class="slider" type="range" min="0" max="100" id="now-bright" aria-label="Brightness">
+              </label>
+              <button class="btn" data-goto="lighting">Change</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Lighting -->
+    <section class="view" id="view-lighting">
+      <div class="page-head">
+        <div>
+          <h1>Lighting</h1>
+          <p id="light-sub">One effect paints every device.</p>
+        </div>
+        <label class="bright head-bright" title="Overall brightness">
+          <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3 3l1.1 1.1M11.9 11.9 13 13M3 13l1.1-1.1M11.9 4.1 13 3"/></svg>
+          <input class="slider" type="range" min="0" max="100" id="light-bright" aria-label="Overall brightness">
+          <span class="num muted" id="light-bright-v"></span>
+        </label>
+      </div>
+      <div class="tabs" role="tablist" id="light-tabs">
+        <button role="tab" data-tab="effects" aria-selected="true">Effects</button>
+        <button role="tab" data-tab="layout" aria-selected="false">Layout</button>
+        <button role="tab" data-tab="devices" aria-selected="false">Devices <span class="count" id="dev-count"></span></button>
+      </div>
+
+      <div class="tab-panel active" id="tab-effects">
+        <div class="tab-tools">
+          <button class="btn" id="btn-import">Import effect</button>
+          <button class="btn" id="btn-signal">Bring over SignalRGB effects</button>
+          <button class="btn" id="btn-match">Match my wallpaper</button>
+        </div>
+        <div class="lighting">
+          <div class="library" id="fx-library"></div>
+          <aside class="sys fx-side">
+            <span class="sys-title">Preview</span>
+            <div class="preview-wrap"><canvas id="fx-preview"></canvas></div>
+            <div class="params" id="fx-params"></div>
+            <div class="playlist" id="fx-playlist"></div>
+          </aside>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-layout">
+        <div class="layout-grid">
+          <div class="ed-col">
+            <div class="sys ed-wrap"><span class="sys-title">Canvas</span><div id="editor"></div></div>
+            <div class="ed-bar" id="ed-bar"></div>
+          </div>
+          <aside class="ed-side" id="ed-side"></aside>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-devices">
+        <div class="dev-grid" id="dev-grid"></div>
+      </div>
+    </section>
+
+    <!-- Cooling -->
+    <section class="view" id="view-cooling">
+      <div class="page-head">
+        <div>
+          <h1>Cooling</h1>
+          <p id="cool-sub">Pick a header, then drag the points to shape its curve.</p>
+        </div>
+        <div class="seg" id="fan-presets" role="group" aria-label="Preset curve">
+          <button data-preset="quiet">Quiet</button>
+          <button data-preset="balanced">Balanced</button>
+          <button data-preset="performance">Performance</button>
+          <button data-preset="full">Full speed</button>
+        </div>
+      </div>
+      <div class="fans" id="fan-list"></div>
+      <div class="grid-2">
+        <div class="sys curve-win">
+          <span class="sys-title" id="curve-title">Curve</span>
+          <div class="card-head curve-card-head">
+            <span class="muted small" id="curve-help">Drag a point to adjust it. Select one to remove it, or add a point and click the graph.</span>
+            <div class="curve-tools">
+              <span class="num" id="curve-readout"></span>
+              <button class="btn ghost small" id="curve-add" type="button" aria-pressed="false">Add point</button>
+              <button class="btn ghost small" id="curve-remove" type="button" disabled>Remove point</button>
+            </div>
+          </div>
+          <div class="curve-wrap"><svg class="curve" id="curve" viewBox="0 0 600 330"></svg></div>
+        </div>
+        <div class="box card stack" id="fan-settings"></div>
+      </div>
+    </section>
+
+    <!-- Pump screen -->
+    <section class="view" id="view-pump">
+      <div class="page-head">
+        <div>
+          <h1>Pump screen</h1>
+          <p id="pump-sub">The round 480 × 480 screen on your pump. Changes go out live.</p>
+        </div>
+      </div>
+      <div class="pump-grid">
+        <div class="sys lcd-stage"><span class="sys-title">Live preview</span><div class="lcd-bezel"><canvas id="lcd-preview" width="480" height="480"></canvas><div class="ov-layer" id="ov-layer"></div></div></div>
+        <div class="stack">
+          <div class="modes" id="lcd-modes"></div>
+          <div class="box card stack" id="lcd-settings"></div>
+          <div class="box card stack" id="lcd-overlays" hidden></div>
+        </div>
+      </div>
+      <div class="box card stack pump-store" id="pump-store"></div>
+    </section>
+
+    <!-- Mouse -->
+    <section class="view" id="view-mouse">
+      <div class="page-head">
+        <div>
+          <h1 id="mouse-title">Mouse</h1>
+          <p id="mouse-sub">Wireless, through the USB dongle.</p>
+        </div>
+        <span class="pill" id="mouse-status"></span>
+      </div>
+      <div class="stack">
+        <div class="sys card" style="padding-top:26px">
+          <span class="sys-title">Sensitivity stages</span>
+          <div class="card-head"><span class="muted">The DPI button under the wheel cycles through the stages that are on.</span></div>
+          <div class="stages" id="dpi-stages"></div>
+          <div class="row dpi-editor" id="dpi-editor"></div>
+        </div>
+        <div class="grid-2">
+          <div class="box card stack">
+            <h2>Polling rate</h2>
+            <p class="muted">How often the mouse reports its position. 1000 Hz is the most this dongle supports.</p>
+            <div class="seg" id="poll" role="group" aria-label="Polling rate"></div>
+          </div>
+          <div class="box card stack">
+            <h2>Logo light</h2>
+            <p class="muted">The logo light lives with the rest of your lights now.</p>
+            <div><button class="btn" data-goto-tab="devices">Open in Lighting</button></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Wallpaper -->
+    <section class="view" id="view-wallpaper">
+      <div class="page-head">
+        <div>
+          <h1>Wallpaper</h1>
+          <p>Live wallpapers behind your desktop icons: videos, GIFs, pictures and HTML wallpapers.</p>
+        </div>
+        <div class="row" style="gap:8px" id="wall-actions"></div>
+      </div>
+      <div class="stack">
+        <div id="wall-import"></div>
+        <div class="box card wall-opts" id="wall-options"></div>
+        <div class="walls" id="walls"></div>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section class="view" id="view-settings">
+      <div class="page-head"><div><h1>Settings</h1></div></div>
+      <div class="settings">
+        <div class="box card" id="set-general"></div>
+        <div class="box card" id="set-conflicts"></div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast sys" id="toast" role="status" aria-live="polite"><span class="sys-title">System</span><div class="toast-msg" id="toast-msg"></div></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
