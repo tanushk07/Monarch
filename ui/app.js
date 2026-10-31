@@ -173,7 +173,11 @@ function renderVitals(t) {
     if (live) rows.push([f.id, f.name, Math.round(live.rpm).toLocaleString(), "rpm"]);
   }
   const st = S.mouse.stages[S.mouse.active];
-  if (seen("mouse")) rows.push(S.mouse.connected && st ? ["mouse", "Mouse", st.dpi.toLocaleString(), `dpi at ${S.mouse.polling} Hz`] : ["mouse", "Mouse", "--", "not connected"]);
+  if (seen("mouse")) {
+    const bt = mouseLink(S.mouse) === "bluetooth", b = battInfo(S.mouse);
+    rows.push(S.mouse.connected && st ? ["mouse", "Mouse", st.dpi.toLocaleString(), bt ? "dpi over Bluetooth" : `dpi at ${S.mouse.polling} Hz`] : ["mouse", "Mouse", "--", "not connected"]);
+    if (b) rows.push(["mouse-batt", "Mouse battery", b.pct, b.full ? "%, full" : b.charging ? "%, charging" : "%", b.low || b.critical]);
+  }
   const keys = rows.map((r) => r[0]).join("|");
   const L = $("#v-list");
   if (keys !== vitalKeys) {
@@ -868,12 +872,118 @@ function renderPumpStore() {
 }
 
 // ---------------------------------------------------------------- mouse
+// How the mouse is linked right now. The engine reports "dongle", "bluetooth" or "wired". An older
+// engine only says whether it is wired, and "wireless" alone can't tell the dongle from Bluetooth,
+// so that case stays unnamed rather than guessed.
+const LINKS = {
+  dongle: { name: "2.4 GHz dongle", sub: "Wireless, through the 2.4 GHz USB dongle." },
+  bluetooth: { name: "Bluetooth", sub: "Wireless, over Bluetooth." },
+  wired: { name: "USB cable", sub: "Wired, through the USB cable." },
+  wireless: { name: "Wireless", sub: "Wireless." },
+};
+function mouseLink(m) {
+  if (!m?.connected) return null;
+  if (LINKS[m.connection]) return m.connection;
+  return m.wireless === false ? "wired" : "wireless";
+}
+const POLL_NOTE = {
+  dongle: "How often the mouse reports its position. 1000 Hz is the most this dongle supports.",
+  bluetooth: "Over Bluetooth, Windows and the mouse agree on the rate between themselves, usually well below 1000 Hz, so it can't be set here. Switch to the dongle or the cable to choose it.",
+  other: "How often the mouse reports its position. 1000 Hz is the most it supports.",
+};
+
+// The low battery warning is sent by the engine, so it still arrives when this window is closed.
+// The page only shows the level and changes the setting. This copy keeps the slider where it was
+// put when the engine doesn't report the setting back.
+let alertLocal = { on: true, at: 20 };
+const battAlert = () => S?.mouse?.batteryAlert || alertLocal;
+function battInfo(m) {
+  if (!m?.connected || m.battery == null) return null;
+  const pct = Math.max(0, Math.min(100, Math.round(m.battery)));
+  const charging = !!m.charging;
+  const low = !charging && pct <= battAlert().at, critical = !charging && pct <= 10;
+  return { pct, charging, full: charging && pct >= 100, low, critical, tone: charging ? "charge" : critical ? "crit" : low ? "low" : "" };
+}
+
+// Everything the battery and link show, updated in place: this runs on every mouse update, on
+// any page, so it never rebuilds the slider (a reading that lands mid-drag would drop it).
+const battAt = $("#batt-at"), battOn = $("#batt-on");
+let battDragging = false;
+function renderBattery() {
+  const m = S?.mouse || {}, b = battInfo(m), link = mouseLink(m), al = battAlert();
+  const tone = b?.tone || "";
+
+  // page head: the link, and the battery next to it
+  const status = $("#mouse-status"); status.innerHTML = "";
+  status.append(h("i", { class: "dot" + (link ? "" : " off") }), link ? LINKS[link].name : "Not found");
+  status.title = link ? "Connected" : "";
+  $("#mouse-sub").textContent = link ? LINKS[link].sub : "Turn the mouse on, or move it to wake it. It connects through the dongle, Bluetooth or the cable.";
+  const pill = $("#mouse-batt");
+  pill.hidden = !b; pill.dataset.tone = tone;
+  if (b) {
+    $("#mouse-batt-pct").textContent = b.pct + "%";
+    pill.title = b.full ? "Fully charged" : b.charging ? "Charging" : "Battery";
+    pill.querySelector(".b-lvl").setAttribute("width", b.pct ? Math.max(1, 18 * b.pct / 100).toFixed(2) : 0);
+  }
+
+  // title bar, on every page but the rig (the rig lists it with the vitals)
+  $("#ro-mouse-wrap").hidden = !b;
+  if (b) { const ro = $("#ro-mouse"); ro.textContent = b.pct + "%"; ro.classList.toggle("hot", b.low || b.critical); }
+
+  // battery card
+  const card = $("#batt-card");
+  card.dataset.tone = tone;
+  $("#batt-num").textContent = b ? b.pct : "--";
+  const bar = $("#batt-bar");
+  bar.style.setProperty("--pct", (b ? b.pct : 0) + "%");
+  const state = $("#batt-state"); state.innerHTML = "";
+  const [dot, label] = !link ? ["off", "Not connected"] : !b ? ["off", "Not read yet"] : b.full ? ["", "Full"] : b.charging ? ["", "Charging"] : b.low || b.critical ? ["warn", "Low"] : ["", "On battery"];
+  state.append(h("i", { class: "dot" + (dot ? " " + dot : "") }), label);
+  const note = !link ? "Turn the mouse on, or move it to wake it."
+    : !b ? "The mouse hasn't reported its battery yet."
+    : b.full ? "Fully charged. You can unplug the cable."
+    : b.charging ? (link === "wired" ? "Charging through the USB cable." : "Charging.")
+    : b.critical ? "Almost empty. Plug in the USB cable; the mouse keeps working while it charges."
+    : b.low ? "Below your warning level. Plug in the USB cable to charge it; the mouse keeps working while it charges."
+    : "";
+  const noteEl = $("#batt-note"); noteEl.textContent = note; noteEl.hidden = !note;
+
+  // the warning setting
+  if (!battDragging) { battAt.value = al.at; sliderFill(battAt); }
+  showAlertLevel(battDragging ? +battAt.value : al.at, al.on);
+  battOn.checked = al.on;
+  battAt.disabled = !al.on;
+}
+function showAlertLevel(at, on) {
+  $("#batt-at-val").textContent = at + "%";
+  const bar = $("#batt-bar");
+  bar.style.setProperty("--at", at + "%");
+  bar.classList.toggle("no-mark", !on);
+}
+async function commitAlert(patch) {
+  const next = { ...battAlert(), ...patch };
+  alertLocal = next;
+  if (S.mouse) S.mouse.batteryAlert = next;
+  renderBattery(); renderVitalsMouse();
+  try { const r = await bridge.call("setBatteryAlert", next); if (r?.message) toast(r.message); }
+  catch { toast("This version of Monarch can't send low battery warnings yet."); }
+}
+// While the thumb is held, readings leave the slider alone. The browser sends "change" after the
+// pointer is released, so the flag is cleared a moment later, not on release itself.
+battAt.addEventListener("pointerdown", () => (battDragging = true));
+window.addEventListener("pointerup", () => { if (battDragging) setTimeout(() => (battDragging = false)); });
+battAt.addEventListener("input", () => { sliderFill(battAt); showAlertLevel(+battAt.value, battOn.checked); });
+battAt.addEventListener("change", () => { battDragging = false; commitAlert({ at: +battAt.value }); });
+battOn.addEventListener("change", () => commitAlert({ on: battOn.checked }));
+$("#batt-test").addEventListener("click", async () => {
+  try { const r = await bridge.call("testBatteryAlert"); toast(r?.message || "Sent a test notification. If nothing appears, check that Do not disturb is off in Windows."); }
+  catch { toast("This version of Monarch can't send notifications yet."); }
+});
+
 let editStage = 2;
 function renderMouse() {
   const m = S.mouse;
-  $("#mouse-status").innerHTML = "";
-  $("#mouse-status").append(h("i", { class: "dot" + (m.connected ? "" : " off") }), m.connected ? (m.battery != null ? `Connected, battery ${m.battery}%` : "Connected") : "Not found");
-  $("#mouse-sub").textContent = m.connected ? (m.wireless === false ? "Wired." : "Wireless, through the USB dongle.") : "Plug in the dongle or wake the mouse.";
+  renderBattery();
   const st = $("#dpi-stages"); st.innerHTML = "";
   m.stages.forEach((s, i) => st.append(h("button", { class: "tile stg", "data-off": String(!s.enabled), "aria-pressed": String(i === editStage), onclick: () => { editStage = i; renderMouse(); } },
     h("div", { class: "dpi" }, s.dpi.toLocaleString(), h("small", {}, "dpi")),
@@ -894,8 +1004,11 @@ function renderMouse() {
     h("label", { class: "row muted", style: { gap: "8px" }, title: editStage === 4 ? "" : "The mouse needs stages 1 to 4 on" }, "On", h("span", { class: "switch" }, en)),
     h("button", { class: "btn", disabled: editStage === m.active || !s.enabled, onclick: async () => { m.active = editStage; renderMouse(); renderVitalsMouse(); const r = await bridge.call("setActiveStage", editStage); if (r && r.message) toast(r.message); } }, editStage === m.active ? "In use" : "Use now"));
 
+  // Over Bluetooth the rate is the Bluetooth link's, not a setting of the mouse.
+  const link = mouseLink(m), bt = link === "bluetooth";
+  $("#poll-note").textContent = bt ? POLL_NOTE.bluetooth : link === "dongle" ? POLL_NOTE.dongle : POLL_NOTE.other;
   const poll = $("#poll"); poll.innerHTML = "";
-  for (const hz of [125, 250, 500, 1000]) poll.append(h("button", { "aria-pressed": String(m.polling === hz), onclick: async () => { m.polling = hz; renderMouse(); renderVitalsMouse(); const r = await bridge.call("setPolling", hz); if (r && r.message) toast(r.message); } }, hz + " Hz"));
+  for (const hz of [125, 250, 500, 1000]) poll.append(h("button", { "aria-pressed": String(!bt && m.polling === hz), disabled: bt, onclick: async () => { m.polling = hz; renderMouse(); renderVitalsMouse(); const r = await bridge.call("setPolling", hz); if (r && r.message) toast(r.message); } }, hz + " Hz"));
 
 }
 function renderVitalsMouse() { if (lastTelemetry) renderVitals(lastTelemetry); }
@@ -1582,7 +1695,7 @@ async function matchWallpaper() {
     if (lcdDecoding) lcdNext = src; else showLcd(src);
   });
   bridge.on("effects", (list) => { S.lighting.effects = list; renderLibrary(); });
-  bridge.on("state", (s) => { const keep = S.lighting.effects; S = s; if (!S.lighting.effects.length) S.lighting.effects = keep; renderDevices(); renderSoon("mouse", "settings", "cooling", "wallpaper"); applySetup(S.setup); syncBrightness(); syncHardware(); });
+  bridge.on("state", (s) => { const keep = S.lighting.effects; S = s; if (!S.lighting.effects.length) S.lighting.effects = keep; renderDevices(); renderBattery(); renderSoon("mouse", "settings", "cooling", "wallpaper"); applySetup(S.setup); syncBrightness(); syncHardware(); });
   bridge.on("lighting", (setup) => applySetup(setup));
   bridge.on("leds", (b64) => {
     const bin = atob(b64), u = new Uint8Array(bin.length);
@@ -1594,7 +1707,7 @@ async function matchWallpaper() {
   bridge.on("wallpaper", (w) => { S.wallpaper = w; $("#btn-match").hidden = !(w.items || []).length; if (current === "wallpaper") renderWalls(); });
   bridge.on("wallImport", (p) => { wallImport = p; if (current === "wallpaper") renderWalls(); });
   bridge.on("mirror", (st) => { mirrorStatus = st; $$(".mirror-status").forEach((e) => (e.textContent = st)); });
-  bridge.on("mouse", (m) => { S.mouse = m; renderSoon("mouse"); });
+  bridge.on("mouse", (m) => { S.mouse = m; renderBattery(); renderSoon("mouse"); });
   bridge.on("navigate", (v) => show(v));
   bridge.on("window", (w) => setMaxIcon(!!w.max));
   bridge.on("pumpSave", (e) => {
