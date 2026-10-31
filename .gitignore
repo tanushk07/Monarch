@@ -11,14 +11,6 @@
 *.cache
 *.log
 
-# Packaged application binaries and installers
-*.exe
-*.dll
-*.pdb
-*.msi
-*.sys
-*.cat
-
 # Media assets
 *.png
 *.jpg
