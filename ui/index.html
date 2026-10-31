@@ -22,10 +22,11 @@
       <button data-view="wallpaper">Wallpaper</button>
       <button data-view="settings">Settings</button>
     </nav>
-    <div class="readouts" aria-label="Live temperatures">
+    <div class="readouts" aria-label="Live readings">
       <span class="ro"><b id="ro-coolant">--</b><i>coolant</i></span>
       <span class="ro"><b id="ro-cpu">--</b><i>CPU</i></span>
       <span class="ro opt"><b id="ro-gpu">--</b><i>GPU</i></span>
+      <span class="ro opt" id="ro-mouse-wrap" hidden><b id="ro-mouse">--</b><i>mouse</i></span>
     </div>
     <div class="winbtns">
       <button id="btn-min" aria-label="Minimize" title="Minimize"><svg viewBox="0 0 12 12"><path d="M1 6h10"/></svg></button>
@@ -187,9 +188,15 @@
       <div class="page-head">
         <div>
           <h1 id="mouse-title">Mouse</h1>
-          <p id="mouse-sub">Wireless, through the USB dongle.</p>
+          <p id="mouse-sub"></p>
         </div>
-        <span class="pill" id="mouse-status"></span>
+        <div class="mouse-status">
+          <span class="pill batt-pill" id="mouse-batt" hidden>
+            <svg class="batt-ico" viewBox="0 0 26 12" aria-hidden="true"><rect class="b-case" x=".75" y=".75" width="21.5" height="10.5" rx="2"/><rect class="b-nub" x="23" y="3.75" width="2.25" height="4.5" rx=".75"/><rect class="b-lvl" x="2.5" y="2.5" width="18" height="7" rx=".8"/><path class="b-bolt" d="M13.4 1.4 8.8 6.7h3.3l-1.5 3.9 4.6-5.3h-3.3z"/></svg>
+            <b class="num" id="mouse-batt-pct"></b>
+          </span>
+          <span class="pill" id="mouse-status"></span>
+        </div>
       </div>
       <div class="stack">
         <div class="sys card" style="padding-top:26px">
@@ -199,15 +206,40 @@
           <div class="row dpi-editor" id="dpi-editor"></div>
         </div>
         <div class="grid-2">
-          <div class="box card stack">
-            <h2>Polling rate</h2>
-            <p class="muted">How often the mouse reports its position. 1000 Hz is the most this dongle supports.</p>
-            <div class="seg" id="poll" role="group" aria-label="Polling rate"></div>
+          <div class="box card stack batt" id="batt-card">
+            <div class="row between"><h2>Battery</h2><span class="pill" id="batt-state"></span></div>
+            <div class="batt-read">
+              <div class="batt-num"><b id="batt-num">--</b><small>%</small></div>
+              <div class="batt-bar" id="batt-bar" aria-hidden="true"><div class="cells"><i class="fill"></i></div><i class="mark"></i></div>
+            </div>
+            <p class="muted small" id="batt-note"></p>
+            <div class="batt-alert">
+              <div class="row between">
+                <label for="batt-on"><b>Low battery warning</b></label>
+                <span class="switch"><input type="checkbox" id="batt-on"></span>
+              </div>
+              <div class="row batt-at-row">
+                <label class="muted" for="batt-at">Warn me at</label>
+                <input class="slider" type="range" id="batt-at" min="5" max="50" step="5" value="20">
+                <b class="num" id="batt-at-val">20%</b>
+              </div>
+              <div class="row between batt-alert-foot">
+                <p class="muted small">Windows shows one notification when the battery drops to this level, even with this window closed. Once the mouse has charged, it can warn again.</p>
+                <button class="btn ghost small" id="batt-test">Test</button>
+              </div>
+            </div>
           </div>
-          <div class="box card stack">
-            <h2>Logo light</h2>
-            <p class="muted">The logo light lives with the rest of your lights now.</p>
-            <div><button class="btn" data-goto-tab="devices">Open in Lighting</button></div>
+          <div class="stack">
+            <div class="box card stack">
+              <h2>Polling rate</h2>
+              <p class="muted" id="poll-note">How often the mouse reports its position. 1000 Hz is the most this dongle supports.</p>
+              <div class="seg" id="poll" role="group" aria-label="Polling rate"></div>
+            </div>
+            <div class="box card stack">
+              <h2>Logo light</h2>
+              <p class="muted">The logo light lives with the rest of your lights now.</p>
+              <div><button class="btn" data-goto-tab="devices">Open in Lighting</button></div>
+            </div>
           </div>
         </div>
       </div>

@@ -408,6 +408,48 @@ input.text.num { width: 84px; text-align: right; }
 .stg .foot { display: flex; align-items: center; justify-content: space-between; color: var(--ash); font-size: 12px; }
 .stg .chip { width: 12px; height: 12px; border-radius: 1px; transform: rotate(45deg); box-shadow: 0 0 8px currentColor; }
 .dpi-editor { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--seam-soft); }
+.seg button:disabled { opacity: .45; cursor: default; color: var(--ash); }
+
+/* battery: one tone for the whole reading. Charging takes the lights' colour, low is warm,
+   10% and under is hot. */
+.mouse-status { display: flex; align-items: center; gap: 18px; }
+.batt-pill b { font-size: 13px; font-weight: 500; color: var(--frost); }
+.batt-ico { width: 26px; height: 12px; flex: none; overflow: visible; }
+.batt-ico .b-case { fill: none; stroke: var(--ash); stroke-width: 1.2; }
+.batt-ico .b-nub { fill: var(--ash); }
+.batt-ico .b-lvl { fill: var(--ok); }
+.batt-ico .b-bolt { fill: var(--frost); stroke: var(--void); stroke-width: 1.1; paint-order: stroke; stroke-linejoin: round; display: none; }
+[data-tone="charge"] .batt-ico .b-lvl { fill: var(--live); }
+[data-tone="charge"] .batt-ico .b-bolt { display: inline; }
+[data-tone="low"] .batt-ico .b-lvl, [data-tone="low"].batt-pill b { fill: var(--warm); color: var(--warm); }
+[data-tone="crit"] .batt-ico .b-lvl, [data-tone="crit"].batt-pill b { fill: var(--heat); color: var(--heat); }
+
+.batt-read { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 22px; }
+.batt-num { white-space: nowrap; }
+.batt-num b { font: 300 46px/1 var(--display); font-stretch: 114%; font-variant-numeric: tabular-nums; }
+.batt-num small { font: 400 14px var(--text); color: var(--ash); margin-left: 3px; }
+[data-tone="low"] .batt-num b { color: var(--warm); }
+[data-tone="crit"] .batt-num b { color: var(--heat); }
+/* Ten cells cut out of one continuous bar, so the fill can stop part way into a cell and the
+   warning mark lines up with the percentage it stands for. */
+.batt-bar { position: relative; height: 16px; --pct: 0%; --at: 20%; --tone: var(--ok); }
+[data-tone="charge"] .batt-bar { --tone: var(--live); }
+[data-tone="low"] .batt-bar { --tone: var(--warm); }
+[data-tone="crit"] .batt-bar { --tone: var(--heat); }
+.batt-bar .cells { position: absolute; inset: 0; background: var(--veil-3);
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 calc(10% - 3px), transparent calc(10% - 3px) 10%);
+  mask: repeating-linear-gradient(90deg, #000 0 calc(10% - 3px), transparent calc(10% - 3px) 10%); }
+.batt-bar .fill { position: absolute; left: 0; top: 0; bottom: 0; width: var(--pct); background: var(--tone); transition: width .6s, background .6s; }
+[data-tone="charge"] .batt-bar .fill { animation: charging 2.4s ease-in-out infinite; }
+@keyframes charging { 50% { opacity: .6; } }
+.batt-bar .mark { position: absolute; top: -5px; bottom: -5px; left: calc(var(--at) - 2.5px); width: 2px; background: var(--warm); box-shadow: 0 0 0 2px var(--veil), 0 0 8px var(--warm); border-radius: 1px; }
+.batt-bar.no-mark .mark { display: none; }
+.batt-alert { display: grid; gap: 12px; padding-top: 16px; border-top: 1px solid var(--seam-soft); }
+.batt-at-row .slider { flex: 1; }
+.batt-at-row .slider:disabled { opacity: .4; cursor: default; }
+.batt-at-row b { width: 42px; text-align: right; font-size: 15px; }
+.batt-alert-foot { align-items: flex-start; gap: 18px; }
+.batt-alert-foot p { max-width: 62ch; }
 
 /* ---------- wallpaper ---------- */
 .walls { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
@@ -547,6 +589,7 @@ input.text.num { width: 84px; text-align: right; }
 }
 @media (max-width: 1250px) { .layout-grid { grid-template-columns: 1fr; } .ed-col { position: relative; top: 0; } .power-grid { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) {
+  [data-tone="charge"] .batt-bar .fill { animation: none; }
   .toast { transition: opacity .15s; transform: translate(-50%, 0); }
   .fan .bar i, .switch input::after { transition: none; }
 }
