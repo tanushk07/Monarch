@@ -1,5 +1,15 @@
 MONARCH 0.6.2, one app for your lights, fans, pump screen, mouse and wallpaper
 
+MOUSE BATTERY AND CONNECTION (patch on top of 0.6.2)
+- The Mouse page shows the battery, live, and whether the mouse is on the 2.4 GHz dongle,
+  Bluetooth or the USB cable. The battery also shows in the title bar and on the Rig page.
+- Low battery warning: pick the level with the slider on the Mouse page (5-50%). Windows
+  shows one notification when the battery drops to it, even with the window closed, and
+  warns again after the mouse has charged. Test shows what it looks like.
+- Over Bluetooth, DPI and polling rate can't be changed (Monarch reaches the mouse's
+  settings only through the dongle or the cable).
+- Needs MonarchMouse.dll next to Monarch.exe. How it works: engine-patch\README.md.
+
 NEW IN 0.6.2
 - Starts with Windows, not just at sign-in: a small boot helper (Task Scheduler, as SYSTEM, no
   window) runs your fan curves and puts the motherboard lights back to your last colours from the
@@ -70,7 +80,7 @@ WHAT IT CAN DRIVE (each shows up only when it's found)
   full speed for 6 seconds so you can see which fans it drives. Most PWM fans can't stop
   at 0% (they idle at their lowest speed); to let a header stop its fans, set it to
   Voltage mode in the BIOS (Smart Fan 6). The pump never goes below 40%.
-- HyperX Pulsefire Haste 2  DPI stages, polling rate, logo light
+- HyperX Pulsefire Haste 2  DPI stages, polling rate, logo light, battery, dongle/Bluetooth/cable
 - Live wallpapers  videos, GIFs, pictures and HTML wallpapers behind the desktop icons
 
 LIGHTING (one section, three tabs)
@@ -121,7 +131,7 @@ WALLPAPER (Lively no longer needed)
   showing. After that you can uninstall Lively.
 
 NOT YET
-- Mouse battery level, sleep timer, button remaps (need a USB capture first)
+- Mouse sleep timer, button remaps (need a USB capture first)
 
 SETTING UP THE LIGHTS
 Lighting > Devices: check each header lists what is really plugged into it.

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Battery, connection type and low battery warning for the Pulsefire Haste 2, loaded by a
+       patched Monarch.exe (see ../README.md). Built for the same runtime as Monarch: .NET Framework 4.7.2. -->
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <OutputType>Library</OutputType>
+    <AssemblyName>MonarchMouse</AssemblyName>
+    <RootNamespace>MonarchMouse</RootNamespace>
+    <LangVersion>11.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Deterministic>true</Deterministic>
+    <DebugType>none</DebugType>
+    <Version>1.0.0</Version>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net472" Version="1.0.3" PrivateAssets="all" />
+    <!-- Windows' Bluetooth API. Compile-time only: at run time Windows 10/11 supplies it. -->
+    <PackageReference Include="Microsoft.Windows.SDK.Contracts" Version="10.0.19041.1" PrivateAssets="all" />
+    <Reference Include="System.Windows.Forms" />
+    <!-- The same HidSharp that ships next to Monarch.exe -->
+    <Reference Include="HidSharp"><HintPath>../../HidSharp.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>
