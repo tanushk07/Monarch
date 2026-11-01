@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using HidSharp;
 
 namespace MonarchMouse
 {
@@ -19,7 +18,7 @@ namespace MonarchMouse
     // to Bluetooth, which is why Monarch used to say "through the USB dongle" over Bluetooth.
     internal static class Watcher
     {
-        static readonly TimeSpan Every = TimeSpan.FromSeconds(30);       // while everything is known
+        static readonly TimeSpan Every = TimeSpan.FromSeconds(15);       // while everything is known
         static readonly TimeSpan Searching = TimeSpan.FromSeconds(10);   // the mouse isn't answering
         static readonly TimeSpan Waiting = TimeSpan.FromSeconds(5);      // on Bluetooth, no real level yet
         static readonly TimeSpan KeepLevel = TimeSpan.FromMinutes(10);   // a reading this recent still stands
@@ -36,8 +35,7 @@ namespace MonarchMouse
         static volatile string link;          // "wired", "bluetooth", "dongle", or null
         static volatile int battery = -1;     // 1-100, -1 until read
         static volatile bool charging;
-        static volatile string chargingFrom;  // "cable", "mouse" (its own report), "level" (it went up), or null
-        static volatile int linkRate;         // reports a second over Bluetooth, 0 when unknown
+        static volatile string chargingFrom;  // "cable", "mouse" (it said so), "level" (it went up), or null
         static volatile bool polled;          // false until the first check finishes
         static volatile bool dirty;           // the page hasn't seen the latest values
         static volatile bool woken;
@@ -56,20 +54,41 @@ namespace MonarchMouse
         }
 
         // ---------------------------------------------------------------- the watcher thread
+        static VendorLink line;   // the open line to the mouse on the current link
+
+        // Keeps one line open to `dev`, reopening it when the device changes or the line dropped.
+        static VendorLink LineTo(HidSharp.HidDevice dev, string name)
+        {
+            if (dev == null) { CloseLine(); return null; }
+            if (line != null && line.Alive && line.Device.DevicePath == dev.DevicePath) return line;
+            CloseLine();
+            line = VendorLink.Open(dev, name);
+            if (line != null) { line.Unprompted += Poke; Host.Info("listening on " + name); }
+            return line;
+        }
+
+        static void CloseLine()
+        {
+            if (line == null) return;
+            line.Unprompted -= Poke;
+            line.Dispose();
+            line = null;
+        }
+
         static void Run()
         {
             try { ble = new BleBattery(); ble.Changed += Poke; }
             catch (Exception ex) { ble = null; Host.Warn("Bluetooth unavailable: " + ex.Message); }
 
             var rise = new RiseTracker();
-            HidDevice btVendor = null;
             bool btVendorChecked = false;
+            HidSharp.HidDevice btVendor = null;
             int misses = 0, btVendorMisses = 0;
             var next = DateTime.MinValue;
             var levelAt = DateTime.MinValue;    // when lastLevel was read
             int lastLevel = -1;                 // the last real reading, on any link
+            DateTime linkSince = DateTime.UtcNow;
             string lastLog = null;
-            bool loggedRaw = false;
             while (true)
             {
                 try
@@ -77,17 +96,19 @@ namespace MonarchMouse
                     if (DateTime.UtcNow >= next)
                     {
                         var t = DateTime.UtcNow;
+                        lastCheck = t;
                         string was = link;
                         string now = null;
                         Reading? r = null;      // the mouse's own battery report
                         int btLevel = -1;       // the Bluetooth Battery Service
-                        int rate = 0;
+                        VendorLink used = null;
 
                         var cable = UsbBattery.Find(UsbBattery.Cables);
                         if (cable != null)
                         {
                             now = "wired";
-                            r = UsbBattery.Request(cable, Host.WriteGate(mouseDevice));
+                            used = LineTo(cable, "cable");
+                            r = used?.Request(Host.WriteGate(mouseDevice));
                         }
                         else if (BluetoothUp())
                         {
@@ -98,26 +119,28 @@ namespace MonarchMouse
                             {
                                 btVendorChecked = true;
                                 btVendor = UsbBattery.FindBluetoothVendor();
-                                Host.Info(btVendor != null ? "Bluetooth: the mouse offers its battery report, charging included" : "Bluetooth: no battery report from the mouse itself; using the Battery Service");
+                                Host.Info(btVendor != null ? "Bluetooth: the mouse offers its battery report, charging included" : "Bluetooth: no battery report from the mouse itself; using the Battery Service (no charging state)");
                             }
                             if (btVendor != null)
                             {
-                                r = UsbBattery.Request(btVendor, null);
+                                used = LineTo(btVendor, "bluetooth");
+                                r = used?.Request(null);
                                 if (r == null && ++btVendorMisses >= 3) { btVendor = null; Host.Info("Bluetooth: the mouse's battery report didn't answer; using the Battery Service"); }
                             }
+                            else CloseLine();
                             if (r == null || r.Value.Percent == 0) btLevel = ble.ReadLevel() ?? -1;
-                            rate = BluetoothRate();
                         }
                         else
                         {
                             var dongle = UsbBattery.Find(UsbBattery.Dongles);
-                            if (dongle != null) r = UsbBattery.Request(dongle, Host.WriteGate(mouseDevice));
+                            used = LineTo(dongle, "dongle");
+                            r = used?.Request(Host.WriteGate(mouseDevice));
                             if (r != null) { now = "dongle"; misses = 0; }
                             // one missed reply isn't sleep yet
                             else if (dongle != null && was == "dongle" && ++misses < MissesBeforeAsleep) now = "dongle";
                         }
                         if (now != "dongle") misses = 0;
-                        if (r != null && !loggedRaw) { loggedRaw = true; Host.Info("battery reply on " + now + ": " + r.Value.Raw); }
+                        if (now != was) linkSince = t;
 
                         // The level: a real reading wins. 0 is never real: a mouse that answers isn't
                         // empty, it just hasn't measured yet. Without a reading the last one stands
@@ -127,25 +150,29 @@ namespace MonarchMouse
                         if (fresh > 0) { lastLevel = fresh; levelAt = t; }
                         int pct = fresh > 0 ? fresh : now != null && lastLevel > 0 && t - levelAt < KeepLevel ? lastLevel : -1;
 
-                        // Charging: on the cable it always is (USB powers the mouse). On a wireless
-                        // link, when the mouse's own report says so, or when the level is going up:
-                        // the Bluetooth Battery Service has no charging flag, and the report's
-                        // charging byte is still unconfirmed on this mouse.
+                        // Charging. On the cable it always is: USB powers the mouse. On the dongle,
+                        // what the mouse announced by itself when the cable went in or out wins
+                        // over the reply, whose charging bytes can lag; then the reply; then a
+                        // rising level as a backup. Over Bluetooth, only the mouse's own report or
+                        // a rising level can tell.
                         if (now != was) rise.Reset();
                         if (fresh > 0 && now != "wired") rise.Add(fresh, t);
+                        var said = used?.Announced;
                         bool chg; string from = null;
                         if (now == "wired") { chg = true; from = "cable"; }
                         else if (now == "dongle" && r == null) { chg = charging; from = chargingFrom; }   // a missed reply: keep what we had
+                        else if (said != null && said.At >= linkSince) { chg = said.Charging; from = chg ? "mouse" : null; }
                         else if (r != null && r.Value.Charging) { chg = true; from = "mouse"; }
                         else if (now != null && rise.Charging(t)) { chg = true; from = "level"; }
                         else chg = false;
 
-                        Update(now, pct, chg, from, rate);
+                        Update(now, pct, chg, from);
 
                         // log the link, the charge state and each 10% step, not every reading
-                        string key = (now ?? "not connected") + (pct > 0 ? ", about " + (pct / 10 * 10) + "%" : "") + (chg ? ", charging" : "") + (rate > 0 ? ", " + rate + " Hz" : "");
-                        if (key != lastLog) { lastLog = key; Host.Info((now ?? "not connected") + (pct > 0 ? ", " + pct + "%" : "") + (chg ? ", charging (" + from + ")" : "") + (rate > 0 ? ", Bluetooth link " + rate + " Hz" : "")); }
+                        string key = (now ?? "not connected") + (pct > 0 ? ", about " + (pct / 10 * 10) + "%" : "") + (chg ? ", charging" : "");
+                        if (key != lastLog) { lastLog = key; Host.Info((now ?? "not connected") + (pct > 0 ? ", " + pct + "%" : "") + (chg ? ", charging (" + from + ")" : "")); }
 
+                        if (now == null) CloseLine();
                         next = t + (now == null || misses > 0 ? Searching
                                   : now == "bluetooth" && fresh <= 0 ? Waiting
                                   : Every);
@@ -158,9 +185,11 @@ namespace MonarchMouse
                     next = DateTime.UtcNow + Searching;
                 }
                 wake.WaitOne(1000);
-                if (woken) { woken = false; next = DateTime.MinValue; }
+                // A poke checks again soon, but not more than once every 2 seconds.
+                if (woken) { woken = false; var soon = lastCheck + TimeSpan.FromSeconds(2); if (soon < next) next = soon; }
             }
         }
+        static DateTime lastCheck = DateTime.MinValue;
 
         static bool BluetoothUp()
         {
@@ -168,31 +197,14 @@ namespace MonarchMouse
             catch (Exception ex) { Host.Warn("Bluetooth: " + ex.Message); return false; }
         }
 
-        // Reports a second the Bluetooth link allows (one per connection interval), or 0 when
-        // Windows doesn't say (Windows 10).
-        static bool loggedNoRate;
-        static int BluetoothRate()
-        {
-            try
-            {
-                double? ms = ble.IntervalMs();
-                return ms > 0 ? (int)Math.Round(1000.0 / ms.Value) : 0;
-            }
-            catch (Exception ex)
-            {
-                if (!loggedNoRate) { loggedNoRate = true; Host.Info("Bluetooth link rate unavailable: " + ex.GetType().Name); }
-                return 0;
-            }
-        }
-
-        // Asks for a check now instead of at the next interval (Bluetooth came up or went down, or
-        // the mouse sent a new level).
+        // Asks for a check now instead of at the next interval: Bluetooth came up or went down, or
+        // the mouse sent something by itself (a new level, the cable going in or out).
         static void Poke() { woken = true; wake.Set(); }
 
-        static void Update(string now, int pct, bool chg, string from, int rate)
+        static void Update(string now, int pct, bool chg, string from)
         {
-            bool changed = now != link || pct != battery || chg != charging || from != chargingFrom || rate != linkRate || !polled;
-            link = now; battery = pct; charging = chg; chargingFrom = from; linkRate = rate; polled = true;
+            bool changed = now != link || pct != battery || chg != charging || from != chargingFrom || !polled;
+            link = now; battery = pct; charging = chg; chargingFrom = from; polled = true;
             if (changed) dirty = true;
             if (now != null && pct > 0)
             {
@@ -237,14 +249,13 @@ namespace MonarchMouse
         {
             if (!polled || alert == null) return;   // nothing checked yet: leave Monarch's own values
             string l = link;
-            int pct = battery, rate = linkRate;
+            int pct = battery;
             d["connected"] = l != null;
             d["wireless"] = l != null && l != "wired";
             d["connection"] = l;
             d["battery"] = l != null && pct > 0 ? (object)pct : null;
             d["charging"] = l != null && charging;
             d["chargingFrom"] = l != null && charging ? chargingFrom : null;
-            d["linkRate"] = l == "bluetooth" && rate > 0 ? (object)rate : null;
             lock (gate) d["batteryAlert"] = new Dictionary<string, object> { { "on", alert.On }, { "at", alert.At } };
         }
 

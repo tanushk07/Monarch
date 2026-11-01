@@ -30,7 +30,7 @@ not merely that the dongle is plugged in. It checks, in order:
 
 If the dongle stops answering twice in a row (about 20 seconds), the mouse is asleep or off and
 the page says so. A Bluetooth connect or disconnect triggers a new check at once; otherwise the
-check runs every 30 seconds, or every 10 seconds while searching.
+check runs every 15 seconds, or every 10 seconds while searching.
 
 **The battery.** Through the dongle or the cable, the watcher sends the vendor report
 `50 02 00 …` to interface 2 (the interface Monarch already uses for DPI) and reads
@@ -45,17 +45,22 @@ yet". The last real reading (from any link, up to 10 minutes old) stays on scree
 and the watcher checks every 5 seconds until a real level arrives, or sooner if the mouse sends
 one by itself. This also keeps that false 0% from setting off the low battery warning.
 
-**Charging.** On the cable it always is, since USB powers the mouse. Over Bluetooth, the standard
-Battery Service has no charging flag. The watcher first looks for the mouse's own battery report
-over Bluetooth (which has one), and if the mouse doesn't offer it, shows "Charging" once the
-level has risen two points (a few minutes after plugging in), until it stops rising for 5
-minutes or drops. On the dongle the mouse's charging byte is used, with the same rising-level
-check as a backup while that byte's meaning is unconfirmed.
+**Charging.** On the cable it always is, since USB powers the mouse. On the dongle the watcher
+keeps one line to the mouse open and listens all the time, because the mouse announces by itself
+when the cable goes in or out, and that announcement (byte 6 = 03, byte 4 = 00 on the cable or FF
+on battery) wins over the battery reply, whose charging bytes can lag. Each check also asks
+twice, since the second reply is fresher on some firmware, and anything new the mouse sends by
+itself triggers a check at once. Every new reply pattern and every unprompted report is logged,
+so plugging in and out shows in the log which bytes change. Over Bluetooth, the standard Battery
+Service has no charging flag: the watcher uses the mouse's own report there if the mouse offers
+it, and otherwise shows "Charging" only once the level has risen two points; the page says
+"Level only" meanwhile instead of guessing "On battery".
 
-**Bluetooth polling rate.** Over Bluetooth, the mouse sends its position each time the connection
-exchanges data, so the rate is the connection's. Windows 11 reports the connection interval
-(`BluetoothLEDevice.GetConnectionParameters()`), and the Mouse page shows the result, for
-example 133 Hz for 7.5 ms. On Windows 10 it shows the typical range instead.
+**Polling rate over Bluetooth** is set by the connection, not the mouse, so the page measures it
+the way online polling-rate tests do: the browser fires a `pointerrawupdate` for every report the
+mouse sends, and the typical gap between them while the mouse moves gives the rate. (Windows'
+Bluetooth connection interval is not the rate: the mouse can send more than one report per
+interval.)
 
 The request and the percent byte come from two Linux tools for this mouse,
 [omarchy-hyperx-battery](https://github.com/Emanuel4100/omarchy-hyperx-battery) and
@@ -92,7 +97,8 @@ Logs: Settings > Open logs folder, lines starting with `mouse+:`.
 2. Switch the mouse to Bluetooth. The page changes to "Bluetooth" within a few seconds. The log
    lists the paired Bluetooth devices once. If the mouse's name isn't picked up, or the Battery
    Service can't be read, the log says why.
-3. Plug in the cable: "USB cable", "Charging". Compare the logged bytes on the cable and on the
-   dongle to confirm what bytes 3 and 4 mean.
+3. On the dongle, plug the cable in, wait 15 seconds, pull it out, wait again. The log shows the
+   battery replies and any report the mouse sent by itself; that tells which bytes carry the
+   charging state on this mouse.
 4. Press Test next to the warning slider: a Windows notification appears. If not, check that
    Do not disturb is off.

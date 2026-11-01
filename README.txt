@@ -7,11 +7,11 @@ MOUSE BATTERY AND CONNECTION (patch on top of 0.6.2)
   shows one notification when the battery drops to it, even with the window closed, and
   warns again after the mouse has charged. Test shows what it looks like.
 - Over Bluetooth, DPI and polling rate can't be changed (Monarch reaches the mouse's
-  settings only through the dongle or the cable). The Mouse page shows the rate the
-  Bluetooth connection gives instead (Windows 11), for example 133 Hz.
-- Over Bluetooth the mouse doesn't say it is charging, so "Charging" shows once the level
-  goes up, a few minutes after plugging in. Right after switching to Bluetooth the last
-  reading stays on screen until the mouse has measured its battery (up to a minute).
+  settings only through the dongle or the cable). The Mouse page measures the rate
+  Bluetooth gives while you move the mouse, like online polling-rate tests.
+- Over Bluetooth the mouse reports its level but not whether it is charging; the page says
+  "Level only". Right after switching to Bluetooth the last reading stays on screen until
+  the mouse has measured its battery (up to a minute).
 - Needs MonarchMouse.dll next to Monarch.exe. How it works: engine-patch\README.md.
 
 NEW IN 0.6.2

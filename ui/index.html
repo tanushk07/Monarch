@@ -190,13 +190,7 @@
           <h1 id="mouse-title">Mouse</h1>
           <p id="mouse-sub"></p>
         </div>
-        <div class="mouse-status">
-          <span class="pill batt-pill" id="mouse-batt" hidden>
-            <svg class="batt-ico" viewBox="0 0 26 12" aria-hidden="true"><rect class="b-case" x=".75" y=".75" width="21.5" height="10.5" rx="2"/><rect class="b-nub" x="23" y="3.75" width="2.25" height="4.5" rx=".75"/><rect class="b-lvl" x="2.5" y="2.5" width="18" height="7" rx=".8"/><path class="b-bolt" d="M13.4 1.4 8.8 6.7h3.3l-1.5 3.9 4.6-5.3h-3.3z"/></svg>
-            <b class="num" id="mouse-batt-pct"></b>
-          </span>
-          <span class="pill" id="mouse-status"></span>
-        </div>
+        <span class="pill" id="mouse-status"></span>
       </div>
       <div class="stack">
         <div class="sys card" style="padding-top:26px">
@@ -235,6 +229,7 @@
               <p class="muted" id="poll-note">How often the mouse reports its position. 1000 Hz is the most this dongle supports.</p>
               <div class="seg" id="poll" role="group" aria-label="Polling rate"></div>
               <div class="poll-bt" id="poll-bt" role="status" hidden></div>
+              <p class="muted small" id="poll-measured" hidden></p>
             </div>
             <div class="box card stack">
               <h2>Logo light</h2>

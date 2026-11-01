@@ -140,16 +140,6 @@ namespace MonarchMouse
             try { Changed?.Invoke(); } catch { }
         }
 
-        // The Bluetooth connection interval in milliseconds: how often the link exchanges data, which
-        // sets how often a Bluetooth mouse can send its position. Windows 11 only; on Windows 10 the
-        // call fails and the caller treats that as unknown.
-        public double? IntervalMs()
-        {
-            if (dev == null || dev.ConnectionStatus != BluetoothConnectionStatus.Connected) return null;
-            var p = dev.GetConnectionParameters();
-            return p == null || p.ConnectionInterval == 0 ? (double?)null : p.ConnectionInterval * 1.25;
-        }
-
         void ForgetLevel()
         {
             try { if (level != null && notifyTried) level.ValueChanged -= OnLevel; } catch { }

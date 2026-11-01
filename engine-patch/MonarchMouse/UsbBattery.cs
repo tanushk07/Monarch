@@ -12,13 +12,10 @@ namespace MonarchMouse
         public string Raw;      // first bytes of the reply, logged once to confirm the charging bytes
     }
 
-    // The battery through the dongle or the cable. The mouse answers a 64-byte vendor report
-    // 50 02 00 ... with 51 02 PP CC SS: PP is the percent, CC the charge state, SS the power source.
-    // Same interface (2) and report layout Monarch already uses for DPI (32 02 -> 33 02).
-    //
-    // This opens its own handle to the interface. Windows gives each open handle its own copy of
-    // every input report, so Monarch's reader thread is untouched and sees the reply too (it
-    // ignores 51 02).
+    // Finding the mouse's vendor interface, and reading its battery reply. The mouse answers a
+    // 64-byte vendor report 50 02 00 ... with 51 02 PP CC SS: PP is the percent, CC the charge
+    // state, SS the power source. Same interface (2) and report layout Monarch already uses for
+    // DPI (32 02 -> 33 02). VendorLink does the asking.
     internal static class UsbBattery
     {
         public const int Vid = 0x03F0;
@@ -69,32 +66,6 @@ namespace MonarchMouse
                 catch { }
             }
             return null;
-        }
-
-        // Null when nothing answered within a second: the mouse is asleep, off, or on another link.
-        public static Reading? Request(HidDevice dev, object gate)
-        {
-            if (!dev.TryOpen(out HidStream s)) return null;
-            using (s)
-            {
-                s.ReadTimeout = 250;
-                s.WriteTimeout = 1000;
-                var req = new byte[dev.GetMaxOutputReportLength()];
-                req[0] = 0x50; req[1] = 0x02;
-                lock (gate ?? new object()) s.Write(req);
-
-                var buf = new byte[Math.Max(65, Safe(dev.GetMaxInputReportLength))];
-                var until = DateTime.UtcNow.AddSeconds(1);
-                while (DateTime.UtcNow < until)
-                {
-                    int n;
-                    try { n = s.Read(buf); }
-                    catch (TimeoutException) { continue; }
-                    var r = Parse(buf, n);
-                    if (r != null) return r;
-                }
-                return null;
-            }
         }
 
         // 51 02 PP CC SS. PP is confirmed by two independent tools. What CC and SS mean comes from

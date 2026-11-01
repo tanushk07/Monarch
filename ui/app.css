@@ -409,24 +409,13 @@ input.text.num { width: 84px; text-align: right; }
 .stg .chip { width: 12px; height: 12px; border-radius: 1px; transform: rotate(45deg); box-shadow: 0 0 8px currentColor; }
 .dpi-editor { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--seam-soft); }
 .seg button:disabled { opacity: .45; cursor: default; color: var(--ash); }
-/* over Bluetooth: the rate the connection gives, read-only */
+/* over Bluetooth: the rate measured while the mouse moves, read-only */
 .poll-bt { display: inline-flex; align-items: baseline; gap: 10px; justify-self: start; padding: 7px 14px; border: 1px solid var(--seam); border-radius: 3px; background: var(--void); box-shadow: inset 0 -2px 0 var(--live); }
 .poll-bt b { font-size: 20px; font-weight: 500; }
 .poll-bt span { color: var(--ash); font-size: 13px; }
 
 /* battery: one tone for the whole reading. Charging takes the lights' colour, low is warm,
    10% and under is hot. */
-.mouse-status { display: flex; align-items: center; gap: 18px; }
-.batt-pill b { font-size: 13px; font-weight: 500; color: var(--frost); }
-.batt-ico { width: 26px; height: 12px; flex: none; overflow: visible; }
-.batt-ico .b-case { fill: none; stroke: var(--ash); stroke-width: 1.2; }
-.batt-ico .b-nub { fill: var(--ash); }
-.batt-ico .b-lvl { fill: var(--ok); }
-.batt-ico .b-bolt { fill: var(--frost); stroke: var(--void); stroke-width: 1.1; paint-order: stroke; stroke-linejoin: round; display: none; }
-[data-tone="charge"] .batt-ico .b-lvl { fill: var(--live); }
-[data-tone="charge"] .batt-ico .b-bolt { display: inline; }
-[data-tone="low"] .batt-ico .b-lvl, [data-tone="low"].batt-pill b { fill: var(--warm); color: var(--warm); }
-[data-tone="crit"] .batt-ico .b-lvl, [data-tone="crit"].batt-pill b { fill: var(--heat); color: var(--heat); }
 
 .batt-read { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 22px; }
 .batt-num { white-space: nowrap; }
