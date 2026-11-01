@@ -175,7 +175,7 @@ function renderVitals(t) {
   const st = S.mouse.stages[S.mouse.active];
   if (seen("mouse")) {
     const bt = mouseLink(S.mouse) === "bluetooth", b = battInfo(S.mouse);
-    rows.push(S.mouse.connected && st ? ["mouse", "Mouse", st.dpi.toLocaleString(), bt ? "dpi over Bluetooth" : `dpi at ${S.mouse.polling} Hz`] : ["mouse", "Mouse", "--", "not connected"]);
+    rows.push(S.mouse.connected && st ? ["mouse", "Mouse", st.dpi.toLocaleString(), bt ? (S.mouse.linkRate ? `dpi at ${S.mouse.linkRate} Hz, Bluetooth` : "dpi over Bluetooth") : `dpi at ${S.mouse.polling} Hz`] : ["mouse", "Mouse", "--", "not connected"]);
     if (b) rows.push(["mouse-batt", "Mouse battery", b.pct, b.full ? "%, full" : b.charging ? "%, charging" : "%", b.low || b.critical]);
   }
   const keys = rows.map((r) => r[0]).join("|");
@@ -886,9 +886,12 @@ function mouseLink(m) {
   if (LINKS[m.connection]) return m.connection;
   return m.wireless === false ? "wired" : "wireless";
 }
+// Over Bluetooth the mouse can send its position once each time the connection exchanges data,
+// so the rate is the connection's. Windows 11 reports it (linkRate); Windows 10 doesn't.
 const POLL_NOTE = {
   dongle: "How often the mouse reports its position. 1000 Hz is the most this dongle supports.",
-  bluetooth: "Over Bluetooth, Windows and the mouse agree on the rate between themselves, usually well below 1000 Hz, so it can't be set here. Switch to the dongle or the cable to choose it.",
+  btMeasured: (hz) => `Over Bluetooth the mouse sends its position each time the connection exchanges data, which Windows says is every ${(1000 / hz).toFixed(1)} ms here. The Bluetooth connection sets this rate, not the mouse, so it can't be changed here. For up to 1000 Hz, switch to the dongle or the cable.`,
+  bluetooth: "Over Bluetooth the connection sets the rate, typically 67 to 133 Hz, and this version of Windows doesn't report the exact figure. For up to 1000 Hz, switch to the dongle or the cable.",
   other: "How often the mouse reports its position. 1000 Hz is the most it supports.",
 };
 
@@ -940,9 +943,11 @@ function renderBattery() {
   const [dot, label] = !link ? ["off", "Not connected"] : !b ? ["off", "Not read yet"] : b.full ? ["", "Full"] : b.charging ? ["", "Charging"] : b.low || b.critical ? ["warn", "Low"] : ["", "On battery"];
   state.append(h("i", { class: "dot" + (dot ? " " + dot : "") }), label);
   const note = !link ? "Turn the mouse on, or move it to wake it."
-    : !b ? "The mouse hasn't reported its battery yet."
+    : !b ? (link === "bluetooth" ? "Over Bluetooth the mouse reports its battery a short while after it connects." : "The mouse hasn't reported its battery yet.")
     : b.full ? "Fully charged. You can unplug the cable."
-    : b.charging ? (link === "wired" ? "Charging through the USB cable." : "Charging.")
+    : b.charging ? (link === "wired" ? "Charging through the USB cable."
+      : m.chargingFrom === "level" ? (link === "bluetooth" ? "Charging: the level is going up. Over Bluetooth the mouse doesn't say it's charging, so this shows a few minutes after you plug it in." : "Charging: the level is going up.")
+      : "Charging.")
     : b.critical ? "Almost empty. Plug in the USB cable; the mouse keeps working while it charges."
     : b.low ? "Below your warning level. Plug in the USB cable to charge it; the mouse keeps working while it charges."
     : "";
@@ -1004,11 +1009,14 @@ function renderMouse() {
     h("label", { class: "row muted", style: { gap: "8px" }, title: editStage === 4 ? "" : "The mouse needs stages 1 to 4 on" }, "On", h("span", { class: "switch" }, en)),
     h("button", { class: "btn", disabled: editStage === m.active || !s.enabled, onclick: async () => { m.active = editStage; renderMouse(); renderVitalsMouse(); const r = await bridge.call("setActiveStage", editStage); if (r && r.message) toast(r.message); } }, editStage === m.active ? "In use" : "Use now"));
 
-  // Over Bluetooth the rate is the Bluetooth link's, not a setting of the mouse.
+  // Over Bluetooth the rate is the Bluetooth connection's, not a setting of the mouse: show what
+  // it is instead of the choices.
   const link = mouseLink(m), bt = link === "bluetooth";
-  $("#poll-note").textContent = bt ? POLL_NOTE.bluetooth : link === "dongle" ? POLL_NOTE.dongle : POLL_NOTE.other;
-  const poll = $("#poll"); poll.innerHTML = "";
-  for (const hz of [125, 250, 500, 1000]) poll.append(h("button", { "aria-pressed": String(!bt && m.polling === hz), disabled: bt, onclick: async () => { m.polling = hz; renderMouse(); renderVitalsMouse(); const r = await bridge.call("setPolling", hz); if (r && r.message) toast(r.message); } }, hz + " Hz"));
+  $("#poll-note").textContent = bt ? (m.linkRate ? POLL_NOTE.btMeasured(m.linkRate) : POLL_NOTE.bluetooth) : link === "dongle" ? POLL_NOTE.dongle : POLL_NOTE.other;
+  const btBox = $("#poll-bt"); btBox.hidden = !bt; btBox.innerHTML = "";
+  if (bt) btBox.append(h("b", { class: "num" }, m.linkRate ? `${m.linkRate} Hz` : "67 to 133 Hz"), h("span", {}, m.linkRate ? "now, over Bluetooth" : "typical over Bluetooth"));
+  const poll = $("#poll"); poll.innerHTML = ""; poll.hidden = bt;
+  for (const hz of [125, 250, 500, 1000]) poll.append(h("button", { "aria-pressed": String(m.polling === hz), onclick: async () => { m.polling = hz; renderMouse(); renderVitalsMouse(); const r = await bridge.call("setPolling", hz); if (r && r.message) toast(r.message); } }, hz + " Hz"));
 
 }
 function renderVitalsMouse() { if (lastTelemetry) renderVitals(lastTelemetry); }

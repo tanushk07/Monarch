@@ -13,16 +13,19 @@ namespace MonarchMouse
     //
     // Windows keeps a paired mouse in its list while it is off or on the dongle, so "paired" says
     // nothing. What counts is ConnectionStatus. The battery comes from the standard Bluetooth
-    // Battery Service (0x180F, Battery Level 0x2A19), the same value Windows Settings shows.
+    // Battery Service (0x180F, Battery Level 0x2A19), the same value Windows Settings shows. That
+    // service carries the percent only, not whether the mouse is charging.
     internal sealed class BleBattery
     {
         BluetoothLEDevice dev;
         string devId;
         GattCharacteristic level;
+        bool notifyTried;
         DateTime nextScan = DateTime.MinValue;
-        bool loggedNames, loggedService;
+        bool loggedNames, loggedService, loggedZero;
 
-        // Raised (on a Windows thread) when the Bluetooth link comes up or goes down.
+        // Raised (on a Windows thread) when the link comes up or goes down, or the mouse sends a
+        // new battery level.
         public event Action Changed;
 
         public bool Connected
@@ -70,17 +73,14 @@ namespace MonarchMouse
             }
         }
 
+        // Runs on a Windows thread: it only asks the watcher thread to check again. If the battery
+        // handle went stale over the reconnect, the next read fails, drops it and fetches a new one.
         void OnStatus(BluetoothLEDevice sender, object args)
         {
-            try
-            {
-                if (sender.ConnectionStatus != BluetoothConnectionStatus.Connected) level = null;
-                Changed?.Invoke();
-            }
-            catch { }
+            try { Changed?.Invoke(); } catch { }
         }
 
-        // 0-100, or null when the Battery Service can't be read.
+        // 1-100, or null when there is no real reading yet.
         public int? ReadLevel()
         {
             if (dev == null || dev.ConnectionStatus != BluetoothConnectionStatus.Connected) return null;
@@ -96,27 +96,74 @@ namespace MonarchMouse
                     { LogService("Battery Level: " + chars.Status + ", " + chars.Characteristics.Count + " found"); return null; }
                     level = chars.Characteristics[0];
                 }
+                if (!notifyTried) Subscribe();
                 var read = Wait(level.ReadValueAsync(BluetoothCacheMode.Uncached));
-                if (read.Status != GattCommunicationStatus.Success) { LogService("read: " + read.Status); level = null; return null; }
+                if (read.Status != GattCommunicationStatus.Success) { LogService("read: " + read.Status); ForgetLevel(); return null; }
                 var reader = DataReader.FromBuffer(read.Value);
                 if (reader.UnconsumedBufferLength < 1) return null;
                 int pct = reader.ReadByte();
+                // Right after it connects, the mouse reports 0% until it has measured its battery.
+                // A connected mouse is never really at 0%, so 0 means "not measured yet".
+                if (pct == 0)
+                {
+                    if (!loggedZero) { loggedZero = true; Host.Info("Bluetooth battery reads 0% right after connecting; waiting for a real level"); }
+                    return null;
+                }
                 return pct <= 100 ? pct : (int?)null;
             }
             catch (Exception ex)
             {
                 LogService("battery: " + ex.Message);
-                level = null;
+                ForgetLevel();
                 return null;
             }
+        }
+
+        // Asks the mouse to send new battery levels as they change, so a new level shows at once
+        // instead of at the next check. Tried once per connection; checking on a timer still works
+        // if the mouse doesn't offer it.
+        void Subscribe()
+        {
+            notifyTried = true;
+            try
+            {
+                if ((level.CharacteristicProperties & GattCharacteristicProperties.Notify) == 0) { Host.Info("Bluetooth battery: the mouse doesn't send updates by itself"); return; }
+                var status = Wait(level.WriteClientCharacteristicConfigurationDescriptorAsync(GattClientCharacteristicConfigurationDescriptorValue.Notify));
+                if (status == GattCommunicationStatus.Success) { level.ValueChanged += OnLevel; Host.Info("Bluetooth battery: updates from the mouse on"); }
+                else Host.Info("Bluetooth battery updates: " + status);
+            }
+            catch (Exception ex) { Host.Info("Bluetooth battery updates: " + ex.Message); }
+        }
+
+        void OnLevel(GattCharacteristic sender, GattValueChangedEventArgs args)
+        {
+            try { Changed?.Invoke(); } catch { }
+        }
+
+        // The Bluetooth connection interval in milliseconds: how often the link exchanges data, which
+        // sets how often a Bluetooth mouse can send its position. Windows 11 only; on Windows 10 the
+        // call fails and the caller treats that as unknown.
+        public double? IntervalMs()
+        {
+            if (dev == null || dev.ConnectionStatus != BluetoothConnectionStatus.Connected) return null;
+            var p = dev.GetConnectionParameters();
+            return p == null || p.ConnectionInterval == 0 ? (double?)null : p.ConnectionInterval * 1.25;
+        }
+
+        void ForgetLevel()
+        {
+            try { if (level != null && notifyTried) level.ValueChanged -= OnLevel; } catch { }
+            level = null;
+            notifyTried = false;
         }
 
         void LogService(string msg) { if (!loggedService) { loggedService = true; Host.Warn("Bluetooth " + msg); } }
 
         void Drop()
         {
+            ForgetLevel();
             try { if (dev != null) { dev.ConnectionStatusChanged -= OnStatus; dev.Dispose(); } } catch { }
-            dev = null; devId = null; level = null;
+            dev = null; devId = null;
         }
 
         static bool Has(string s, string part) => s.IndexOf(part, StringComparison.OrdinalIgnoreCase) >= 0;

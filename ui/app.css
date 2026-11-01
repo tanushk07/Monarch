@@ -409,6 +409,10 @@ input.text.num { width: 84px; text-align: right; }
 .stg .chip { width: 12px; height: 12px; border-radius: 1px; transform: rotate(45deg); box-shadow: 0 0 8px currentColor; }
 .dpi-editor { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--seam-soft); }
 .seg button:disabled { opacity: .45; cursor: default; color: var(--ash); }
+/* over Bluetooth: the rate the connection gives, read-only */
+.poll-bt { display: inline-flex; align-items: baseline; gap: 10px; justify-self: start; padding: 7px 14px; border: 1px solid var(--seam); border-radius: 3px; background: var(--void); box-shadow: inset 0 -2px 0 var(--live); }
+.poll-bt b { font-size: 20px; font-weight: 500; }
+.poll-bt span { color: var(--ash); font-size: 13px; }
 
 /* battery: one tone for the whole reading. Charging takes the lights' colour, low is warm,
    10% and under is hot. */

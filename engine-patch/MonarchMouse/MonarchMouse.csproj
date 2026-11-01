@@ -18,7 +18,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net472" Version="1.0.3" PrivateAssets="all" />
     <!-- Windows' Bluetooth API. Compile-time only: at run time Windows 10/11 supplies it. -->
-    <PackageReference Include="Microsoft.Windows.SDK.Contracts" Version="10.0.19041.1" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Windows.SDK.Contracts" Version="10.0.22621.755" PrivateAssets="all" />
     <Reference Include="System.Windows.Forms" />
     <!-- The same HidSharp that ships next to Monarch.exe -->
     <Reference Include="HidSharp"><HintPath>../../HidSharp.dll</HintPath><Private>false</Private></Reference>

@@ -42,6 +42,35 @@ namespace MonarchMouse
             return null;
         }
 
+        // Over Bluetooth the mouse may offer the same vendor reports through Windows' HID-over-
+        // Bluetooth driver. That channel's path names the HID-over-GATT service {00001812-...}
+        // instead of a USB interface, and its report list shows whether the battery command
+        // (output 0x50, input 0x51) is there. If it is, it also says whether the mouse is charging,
+        // which the standard Bluetooth Battery Service doesn't.
+        public static HidDevice FindBluetoothVendor()
+        {
+            List<HidDevice> all;
+            try
+            {
+                all = DeviceList.Local.GetHidDevices().Where(d =>
+                {
+                    string p = (d.DevicePath ?? "").ToLowerInvariant();
+                    return p.Contains("{00001812-") && (d.VendorID == Vid || p.Contains("03f0"));
+                }).ToList();
+            }
+            catch (Exception ex) { Host.Warn("hid list: " + ex.Message); return null; }
+            foreach (var d in all)
+            {
+                try
+                {
+                    var rd = d.GetReportDescriptor();
+                    if (rd.OutputReports.Any(r => r.ReportID == 0x50) && rd.InputReports.Any(r => r.ReportID == 0x51)) return d;
+                }
+                catch { }
+            }
+            return null;
+        }
+
         // Null when nothing answered within a second: the mouse is asleep, off, or on another link.
         public static Reading? Request(HidDevice dev, object gate)
         {

@@ -39,6 +39,24 @@ gives each handle its own copy of every reply, so Monarch's reader is untouched,
 is written under Monarch's own write lock so it can't split a lighting command. Over Bluetooth,
 the percent comes from the standard Battery Service, the same value Windows Settings shows.
 
+Right after it connects over Bluetooth, the mouse reports 0% for up to a minute, until it has
+measured its battery. A mouse that answers is never really at 0%, so 0 counts as "not measured
+yet". The last real reading (from any link, up to 10 minutes old) stays on screen meanwhile,
+and the watcher checks every 5 seconds until a real level arrives, or sooner if the mouse sends
+one by itself. This also keeps that false 0% from setting off the low battery warning.
+
+**Charging.** On the cable it always is, since USB powers the mouse. Over Bluetooth, the standard
+Battery Service has no charging flag. The watcher first looks for the mouse's own battery report
+over Bluetooth (which has one), and if the mouse doesn't offer it, shows "Charging" once the
+level has risen two points (a few minutes after plugging in), until it stops rising for 5
+minutes or drops. On the dongle the mouse's charging byte is used, with the same rising-level
+check as a backup while that byte's meaning is unconfirmed.
+
+**Bluetooth polling rate.** Over Bluetooth, the mouse sends its position each time the connection
+exchanges data, so the rate is the connection's. Windows 11 reports the connection interval
+(`BluetoothLEDevice.GetConnectionParameters()`), and the Mouse page shows the result, for
+example 133 Hz for 7.5 ms. On Windows 10 it shows the typical range instead.
+
 The request and the percent byte come from two Linux tools for this mouse,
 [omarchy-hyperx-battery](https://github.com/Emanuel4100/omarchy-hyperx-battery) and
 [waybar-hyperx-haste2](https://github.com/czQery/waybar-hyperx-haste2). Only one of them reads
